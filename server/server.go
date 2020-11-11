@@ -2,39 +2,65 @@ package server
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/gorilla/mux"
-	"github.com/gorilla/schema"
+	"golang.org/x/net/netutil"
 
-	democtx "github.com/lfoss0612/DemoApp/context"
-	"github.com/lfoss0612/DemoApp/env"
-	demoerrors "github.com/lfoss0612/DemoApp/errors"
 	"github.com/lfoss0612/DemoApp/logger"
-	"github.com/lfoss0612/DemoApp/middleware"
-	"github.com/lfoss0612/DemoApp/request"
-	"github.com/lfoss0612/DemoApp/response"
 )
 
 // Server wires up routes and starts api server
 type Server struct {
 	shutdownReq chan bool
-	router      *Router
+	router      *router
+	listener    net.Listener
+	Port        string
+	Address     string
 }
 
 // New provides a new Server
-func New(routes []*Route, middlewares []MiddlewareFunc) *Server {
+func New(routes []Route, middlewares []MiddlewareFunc, port string, maxSimultaneousConnections int) (*Server, error) {
 	s := &Server{}
-	router := NewRouter()
+	router := newRouter()
 	router.StrictSlash(true)
 	router.addRoutes(routes)
 	router.addMiddlewares(middlewares)
 	s.router = router
+
+	s.Port = port
+	// Start the web server
+	srv := &http.Server{
+		Addr:           fmt.Sprintf(":%s", port),
+		Handler:        router,
+		MaxHeaderBytes: 1 << 13,
+	}
+	s.Address = srv.Addr
+	listener, listenerErr := net.Listen("tcp", srv.Addr)
+
+	if listenerErr != nil {
+		return nil, fmt.Errorf("unable to listen on %s", srv.Addr)
+	}
+
+	s.listener = listener
+
+	serveErr := srv.Serve(netutil.LimitListener(listener, maxSimultaneousConnections))
+
+	if serveErr != nil {
+		return nil, fmt.Errorf("error in starting server at address %s", srv.Addr)
+	}
+
+	return s, nil
+}
+
+// Close used to close the listener on the server
+func (s *Server) Close() error {
+	return s.listener.Close()
 }
 
 //WaitShutdown wait for server shutdown

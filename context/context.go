@@ -11,6 +11,7 @@ import (
 	"github.com/lfoss0612/DemoApp/constants"
 	"github.com/lfoss0612/DemoApp/env"
 	"github.com/lfoss0612/DemoApp/logger"
+	"github.com/lfoss0612/DemoApp/server"
 )
 
 const requestContextKey string = "context-key"
@@ -32,8 +33,8 @@ const (
 	STATUS_CODE   ContextKey = "statusCode"
 )
 
-var (
-	AmazonTraceIDHeader = http.CanonicalHeaderKey("x-amzn-trace-id")
+const (
+	TransactionIDHeader = "tx-Correlation-id"
 )
 
 type Context struct {
@@ -73,6 +74,9 @@ func BuildContextFromRequest(r *http.Request) *Context {
 
 	log := logger.NewLogger()
 	ctx = context.WithValue(ctx, LOGGER, log)
+	pattern, routeErr := server.GetRoutePattern(r)
+
+	ctx = context.WithValue(ctx, PATTERN, pattern)
 
 	requestCtx := &Context{
 		context: ctx,
@@ -85,11 +89,21 @@ func BuildContextFromRequest(r *http.Request) *Context {
 		environment = env.EnvVar.Env
 	}
 	requestCtx.AddLogField(logger.Environment, environment)
+
+	// logging the route error after adding the additional log fields
+	if routeErr != nil {
+		log.Error("unable to determine route's pattern")
+	}
+
 	return requestCtx
 }
 
 func GetContextFromRequest(r *http.Request) (*Context, error) {
-	requestContext, ok := r.Context().Value(requestContextKey).(*Context)
+	return GetContext(r.Context())
+}
+
+func GetContext(ctx context.Context) (*Context, error) {
+	requestContext, ok := ctx.Value(requestContextKey).(*Context)
 
 	if !ok {
 		requestContext = &Context{
@@ -174,14 +188,14 @@ func (ctx *Context) SetAmznTraceId(amznTraceId string) {
 	ctx.context = context.WithValue(ctx.context, AMZNTRACEID, amznTraceId)
 }
 
-func (ctx *Context) GetResponseBody() string {
+func (ctx *Context) GetResponseBody() interface{} {
 	if ctx.context.Value(RESPONSE_BODY) != nil {
-		return ctx.context.Value(RESPONSE_BODY).(string)
+		return ctx.context.Value(RESPONSE_BODY)
 	}
 	return ""
 }
 
-func (ctx *Context) SetResponseBody(responseBody string) {
+func (ctx *Context) SetResponseBody(responseBody interface{}) {
 	ctx.context = context.WithValue(ctx.context, RESPONSE_BODY, responseBody)
 }
 

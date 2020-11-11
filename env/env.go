@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var EnvVar *Config
@@ -27,6 +28,11 @@ func GetList(key, def string) []string {
 func Init() {
 	var err error
 	EnvVar = &Config{}
+
+	EnvVar.Env = os.Getenv("env")
+	if EnvVar.Env == "" {
+		EnvVar.Env = "local"
+	}
 
 	EnvVar.Port = os.Getenv("port")
 	if EnvVar.Port == "" {
@@ -53,12 +59,12 @@ func Init() {
 		EnvVar.LogAppender = "console"
 	}
 
-	EnvVar.ServerReadTimeoutInSeconds, err = strconv.Atoi(os.Getenv("SERVER_READ_TIMEOUT"))
+	EnvVar.ServerReadTimeoutInSeconds, err = time.ParseDuration(os.Getenv("SERVER_READ_TIMEOUT"))
 	if err != nil {
 		log.Println("Unable to read \"SERVER_READ_TIMEOUT\" from request.")
 	}
 	if EnvVar.ServerReadTimeoutInSeconds == 0 {
-		EnvVar.ServerReadTimeoutInSeconds = 10
+		EnvVar.ServerReadTimeoutInSeconds, _ = time.ParseDuration("10s")
 	}
 
 	EnvVar.ServerMaxSimultaneousConnections, err = strconv.Atoi(os.Getenv("SERVER_MAX_CONNECTIONS"))
@@ -74,12 +80,12 @@ type Config struct {
 	Port string `default:"8080"`
 	Env  string `default:"local"`
 
-	Region                           string `default:"us-east-1"`
-	LogLevel                         string `default:"INFO"`
-	LogFile                          string `default:"application.log"`
-	LogAppender                      string `default:"console"`
-	ServerReadTimeoutInSeconds       int    `default:"10"`
-	ServerMaxSimultaneousConnections int    `default:"5000"`
+	Region                           string        `default:"us-east-1"`
+	LogLevel                         string        `default:"INFO"`
+	LogFile                          string        `default:"application.log"`
+	LogAppender                      string        `default:"console"`
+	ServerReadTimeoutInSeconds       time.Duration `default:"10s"`
+	ServerMaxSimultaneousConnections int           `default:"5000"`
 	BuildInfo                        Build
 }
 

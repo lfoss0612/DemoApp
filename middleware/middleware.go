@@ -1,6 +1,6 @@
 package middleware
 
-imports (
+import (
 	"github.com/lfoss0612/DemoApp/server"
 )
 
@@ -8,8 +8,8 @@ imports (
 func Middlewares() []server.MiddlewareFunc {
 	return []server.MiddlewareFunc{
 		getContextHandler,
-		getRecoveryHandler,				
-		getLoggingHandler,		
+		getPanicHandler,
+		getLoggingHandler,
 		getTimeoutHandler,
 	}
 }

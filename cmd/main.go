@@ -2,20 +2,14 @@ package main
 
 import (
 	"fmt"
-	"net"
-	"net/http"
 	"os"
 	"runtime"
 
-	"github.com/pkg/errors"
-
-	"golang.org/x/net/netutil"
-
 	"github.com/lfoss0612/DemoApp/env"
 	"github.com/lfoss0612/DemoApp/logger"
-	"github.com/lfoss0612/DemoApp/server"
-	"github.com/lfoss0612/DemoApp/routes"
 	"github.com/lfoss0612/DemoApp/middleware"
+	"github.com/lfoss0612/DemoApp/routes"
+	"github.com/lfoss0612/DemoApp/server"
 )
 
 // Variables specified at build time.
@@ -67,12 +61,14 @@ func logInfo(appName string) {
 	serverLog.Info("Loaded Environment Variables")
 }
 func initServer() (*server.Server, error) {
-	s := server.New(
+	s, err := server.New(
 		routes.Routes(),
-		middleware.MiddleWares()		
+		middleware.Middlewares(),
+		env.EnvVar.Port,
+		env.EnvVar.ServerMaxSimultaneousConnections,
 	)
 
-	return s, nil
+	return s, err
 }
 
 func main() {
@@ -83,33 +79,11 @@ func main() {
 		serverLog.WithError(err).Fatalf("Unable to Initialize Server")
 	}
 
-	// Setup Middleware chain
-	router := s.BuildRouter()
-
-	// Start the web server
-	serverLog.Infof("Listening on %s", env.EnvVar.Port)
-
-	srv := &http.Server{
-		Addr:           fmt.Sprintf(":%s", env.EnvVar.Port),
-		Handler:        router,
-		MaxHeaderBytes: 1 << 13,
-	}
-
-	l, listenerErr := net.Listen("tcp", srv.Addr)
-
-	if listenerErr != nil {
-		serverLog.WithError(listenerErr).Fatalf("unable to listen on %s", srv.Addr)
-	}
+	serverLog.Infof("Listening on %s", s.Port)
 
 	defer func() {
-		_ = l.Close() // nolint
+		_ = s.Close() // nolint
 	}()
-
-	serveErr := srv.Serve(netutil.LimitListener(l, env.EnvVar.ServerMaxSimultaneousConnections))
-
-	if serveErr != nil {
-		serverLog.Error(errors.Wrap(serveErr, "Error in Starting the Server."))
-	}
 
 	s.WaitShutdown()
 

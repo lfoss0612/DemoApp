@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 
+	"github.com/lfoss0612/DemoApp/env"
 	"github.com/lfoss0612/DemoApp/logger"
 
 	"time"
@@ -21,7 +22,7 @@ func getLoggingHandler(next http.Handler) http.Handler {
 		timeTaken := int64(time.Now().Sub(startTime) / time.Millisecond)
 		ctx, err := democtx.GetContextFromRequest(r)
 		if err != nil {
-			response.WriteError(w, &demoerrors.AppError{Message: err.Error(), Code: http.StatusInternalServerError}, ctx)
+			response.WriteError(w, &demoerrors.AppError{Message: err.Error(), Code: http.StatusInternalServerError})
 			return
 		}
 		if "/api/v1/health" != ctx.GetPattern() {
@@ -32,6 +33,7 @@ func getLoggingHandler(next http.Handler) http.Handler {
 			logMap[logger.Body] = ctx.GetBodyAsString()
 			logMap[logger.StatusCode] = ctx.GetStatusCode()
 			logMap[logger.TimeTaken] = timeTaken
+			logMap[logger.Environment] = env.EnvVar.Env
 
 			status := demoerrors.PROCESSING_ERROR
 			if ctx.GetStatusCode()/100 == 2 {

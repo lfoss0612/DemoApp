@@ -1,14 +1,17 @@
 package server
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gorilla/mux"
 
-	"github.com/lfoss0612/DemoApp/handlers"
+	"github.com/lfoss0612/DemoApp/request"
+	"github.com/lfoss0612/DemoApp/response"
 )
 
-type HandlerFunc = func(ctx *request.Context, w http.ResponseWriter, requestValue request.Value)
+// HandlerFunc function to handle route
+type HandlerFunc = func(ctx context.Context, w http.ResponseWriter, requestValue request.Value)
 
 // Route Interface
 type Route interface {
@@ -20,37 +23,39 @@ type Route interface {
 }
 
 type router struct {
-	mux.Router
+	*mux.Router
 }
 
-func (r *router) addRoutes(routes []*Routes) {
+func newRouter() *router {
+	return &router{
+		Router: mux.NewRouter(),
+	}
+}
+
+func (r *router) addRoutes(routes []Route) {
 	for _, route := range routes {
-		router.Handle(route.GetPattern(), http.HandlerFunc(buildHandler(route.GetFunction(), route.GetRequestFactory()))).Methods(route.GetMethod())
+		r.Router.Handle(route.GetPattern(), http.HandlerFunc(buildHandler(route.GetFunction(), route.GetRequestFactory()))).Methods(route.GetMethod())
 	}
 }
 
-func (r *router) addMiddleware(middlewares []MiddlewareFunc) {
-	for _, middleware := range middlewares {
-		r.router.Use(middlewareFunc)
-	}
-}
-
-func buildHandler(theHandler func(ctx *democtx.Context, w http.ResponseWriter, requestValue request.Value), requestFactory request.Factory) http.HandlerFunc {
+func buildHandler(theHandler HandlerFunc, requestFactory request.Factory) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if requestFactory == nil {
+			theHandler(r.Context(), w, nil)
+		}
+
 		requestValue := requestFactory.NewInstance()
 
-		ctx, err := democtx.GetContextFromRequest(r)
-
-		if err != nil {
-			response.WriteError(w, &demoerrors.AppError{Message: err.Error(), Code: http.StatusInternalServerError}, ctx)
+		if readErr := request.ReadAndValidateRequest(r, requestValue); readErr != nil {
+			response.WriteError(w, readErr)
 			return
 		}
 
-		if readErr := readAndValidateRequest(r, requestValue, ctx); readErr != nil {
-			response.WriteError(w, readErr, ctx)
-			return
-		}
-
-		theHandler(ctx, w, requestValue)
+		theHandler(r.Context(), w, requestValue)
 	})
+}
+
+// GetRoutePattern Returns the Pattern of the route used to match
+func GetRoutePattern(r *http.Request) (string, error) {
+	return mux.CurrentRoute(r).GetPathTemplate()
 }

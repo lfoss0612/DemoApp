@@ -6,7 +6,7 @@ const (
 	Application   LogField = "application"
 	Platform      LogField = "platform"
 	Environment   LogField = "environment"
-	AmazonTraceID LogField = "x-amzn-trace-id"
+	TransactionId LogField = "tx-Correlation-id"
 	Error         LogField = "error"
 	Header        LogField = "header"
 	Url           LogField = "url"

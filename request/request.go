@@ -1,15 +1,17 @@
 package request
 
 import (
+	"fmt"
 	"net/http"
+	"net/url"
 
+	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 
-	democtx "github.com/lfoss0612/DemoApp/context"
 	demoerrors "github.com/lfoss0612/DemoApp/errors"
 )
 
-func readAndValidateRequest(r *http.Request, requestValue request.Value, ctx *democtx.Context) *demoerrors.AppError {
+func ReadAndValidateRequest(r *http.Request, requestValue Value) *demoerrors.AppError {
 	if requestValue != nil {
 		decoder := schema.NewDecoder()
 		decoder.IgnoreUnknownKeys(true)
@@ -22,7 +24,7 @@ func readAndValidateRequest(r *http.Request, requestValue request.Value, ctx *de
 			return &demoerrors.AppError{Message: readQueryErr.Error(), Code: http.StatusBadRequest}
 		}
 
-		if readBodyErr := readBody(r, requestValue, ctx); readBodyErr != nil {
+		if readBodyErr := readBody(r, requestValue); readBodyErr != nil {
 			return readBodyErr
 		}
 
@@ -39,15 +41,18 @@ func readAndValidateRequest(r *http.Request, requestValue request.Value, ctx *de
 	return nil
 }
 
-func readPathParams(decoder *schema.Decoder, r *http.Request, requestValue request.Value) error {
+func readPathParams(decoder *schema.Decoder, r *http.Request, requestValue Value) error {
 	pathParams := mux.Vars(r)
 	if len(pathParams) > 0 {
 		values := url.Values{}
 		for key, val := range pathParams {
 			values.Set(key, val)
 		}
+		fmt.Println(values)
 
 		decodeErr := decoder.Decode(requestValue, values)
+		fmt.Println(decodeErr)
+		fmt.Println(requestValue)
 		if decodeErr != nil {
 			return &demoerrors.AppError{Message: decodeErr.Error(), Code: http.StatusBadRequest}
 		}
@@ -56,7 +61,7 @@ func readPathParams(decoder *schema.Decoder, r *http.Request, requestValue reque
 	return nil
 }
 
-func readQueryParams(decoder *schema.Decoder, r *http.Request, requestValue request.Value) error {
+func readQueryParams(decoder *schema.Decoder, r *http.Request, requestValue Value) error {
 	if (r.Method == http.MethodGet || r.Method == http.MethodDelete) && len(r.URL.Query()) > 0 {
 		decodeErr := decoder.Decode(requestValue, r.URL.Query())
 		if decodeErr != nil {
@@ -66,9 +71,9 @@ func readQueryParams(decoder *schema.Decoder, r *http.Request, requestValue requ
 	return nil
 }
 
-func readBody(r *http.Request, requestValue request.Value, ctx *democtx.Context) *demoerrors.AppError {
+func readBody(r *http.Request, requestValue Value) *demoerrors.AppError {
 	if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
-		if err := request.UnmarshalJSONRequest(r, requestValue); err != nil {
+		if err := UnmarshalJSONRequest(r, requestValue); err != nil {
 			return err
 		}
 	}

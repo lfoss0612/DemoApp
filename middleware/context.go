@@ -12,8 +12,8 @@ func getContextHandler(next http.Handler) http.Handler {
 
 		ctx := democtx.BuildContextFromRequest(r)
 
-		if AWSTraceId := r.Header.Get(http.CanonicalHeaderKey(democtx.AmazonTraceIDHeader)); AWSTraceId != "" {
-			ctx.AddLogField(logger.AmazonTraceID, AWSTraceId)
+		if txID := r.Header.Get(democtx.TransactionIDHeader); txID != "" {
+			ctx.AddLogField(logger.TransactionId, txID)
 		}
 
 		ctx.AddRequestDataToLog()
